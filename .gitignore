@@ -1,0 +1,42 @@
+# Entorno y secretos
+.venv/
+.env
+*.env
+!.env.template
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Datos generados en local
+data/*.db
+data/*.sqlite*
+data/long_term_memory/
+
+# Modelos descargados (pesan GB, se rebajan solos)
+data/hf/
+data/whisper/
+data/voices/
+data/*.png
+data/*.wav
+
+generated_images/*
+!generated_images/.gitkeep
+
+# Chainlit
+.chainlit/translations/
+.files/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Sistema
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Diapositivas: se entregan aparte en .pptx, no forman parte del repo
+presentaciones/
