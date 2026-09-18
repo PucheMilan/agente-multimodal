@@ -1,0 +1,54 @@
+[project]
+name = "agente-multimodal"
+version = "1.0.0"
+description = "Agente conversacional multimodal con LangGraph. Proyecto final del master AI Engineer."
+readme = "readme.md"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+authors = [{ name = "Sergio Puche" }]
+
+dependencies = [
+    # Orquestacion
+    "langgraph>=1.2",
+    "langgraph-checkpoint-postgres>=3.0",
+    "langchain>=1.4",
+    "langchain-core>=1.0",
+    "langchain-ollama>=1.1",
+    "ollama>=0.6",
+
+    # Front y API
+    "chainlit>=2.12",
+    "fastapi>=0.141",
+    "uvicorn>=0.53",
+    "python-multipart>=0.0.20",
+
+    # Voz (local)
+    "faster-whisper>=1.2",
+    "piper-tts>=1.8",
+
+    # Imagen (local)
+    "diffusers>=0.40",
+    "torch>=2.14",
+    "transformers>=5.17",
+    "accelerate>=1.0",
+    "pillow>=12.0",
+
+    # Datos
+    "psycopg[binary]>=3.3",
+    "pgvector>=0.5",
+    "sqlalchemy>=2.0",
+    "asyncpg>=0.30",
+
+    # Utilidades
+    "pydantic>=2.13",
+    "pydantic-settings>=2.15",
+    "python-dotenv>=1.0",
+    "pypdf>=6.0",
+
+    # Observabilidad (opcional en ejecucion, pero se instala)
+    "langfuse>=4.15",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
