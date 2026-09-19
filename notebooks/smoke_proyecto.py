@@ -10,6 +10,7 @@ from graph import graph_builder
 from modules.memory.cache import init_cache
 from modules.memory.long_term import get_vector_store
 from settings import settings
+from tools.tracing import flush, traza_conversacion
 
 async def main():
     fallos = []
@@ -25,7 +26,10 @@ async def main():
         async def t(txt, espera):
             print(f"\n  > {txt}")
             ini = time.time()
-            r = await app.ainvoke({"messages":[HumanMessage(content=txt)]}, cfg)
+            with traza_conversacion(entrada=txt, sesion=cfg["configurable"]["thread_id"]) as traza:
+                r = await app.ainvoke({"messages":[HumanMessage(content=txt)]}, cfg)
+                if traza is not None:
+                    traza.update(output=r["messages"][-1].content)
             print(f"  < {r['messages'][-1].content[:200]}")
             print(f"    rama={r.get('workflow')} ({time.time()-ini:.1f}s)")
             if r.get("workflow") != espera:
@@ -53,6 +57,8 @@ async def main():
             elif txt[:60].lower() == prev_ai[:60].lower():
                 fallos.append(f"la locucion REPITE la respuesta anterior: {txt[:60]}")
         print(f"\n  recuerdos en pgvector: {vs.count()}")
+    # Lo que quede en el buffer de LangFuse se envia antes de salir.
+    flush()
     print("\n" + ("FALLOS:\n  " + "\n  ".join(fallos) if fallos else "SMOKE OK"))
     return 1 if fallos else 0
 
