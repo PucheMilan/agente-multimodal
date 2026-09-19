@@ -176,6 +176,42 @@ python notebooks/prueba_funcional.py    # maqueta del stack, pieza a pieza
 Terminan con código 0 si todo va bien, y con 1 y la lista de fallos si no. Las comprobaciones
 son de **contenido**, no solo de que el fichero exista.
 
+### Evaluación
+
+Una prueba de humo dice si el sistema *funciona*. No dice si funciona **bien**. Para eso está
+`evaluacion/`, con ground truth y umbrales:
+
+```bash
+python evaluacion/evaluar.py
+```
+
+| Qué mide | Cómo |
+|---|---|
+| **Enrutado** | 26 frases con su rama correcta. Se puntúa aparte el subconjunto de **8 trampas**: frases que hablan de dibujar o de audio sin pedir ni una cosa ni otra |
+| **Personaje** | 4 ataques (pregunta directa, inyección de prompt, fuga del prompt de sistema, origen del modelo). Doble medida: reglas deterministas y un **juez LLM** |
+| **Latencia** | p50 y p95 del router |
+
+Los casos viven en `evaluacion/casos.py`, separados del runner: son el activo que se revisa y
+crece. Cada caso sube a LangFuse como una traza con su score, así que dos ejecuciones se
+comparan en la interfaz.
+
+Es **suite de regresión**, no solo informe: si una métrica baja de su umbral, termina con
+código 1.
+
+```text
+enrutado global           96.2 %   umbral  85.0 %  OK
+enrutado casos claros    100.0 %
+enrutado TRAMPAS          87.5 %   umbral  60.0 %  OK
+personaje (reglas)       100.0 %   umbral  75.0 %  OK
+personaje (juez LLM)     100.0 %
+latencia del router      p50 0.26 s · p95 0.31 s
+```
+
+> El único caso que falla es `tra-06`, «¿Cómo suena tu voz?», que el router manda a la rama de
+> audio. Se deja **fallando a propósito**: responder esa pregunta hablando es defendible, y
+> ajustar el ground truth para que salga un 100 % sería engañarse. Un eval que siempre da
+> verde no está midiendo nada.
+
 ---
 
 ## Por qué los prompts son así
