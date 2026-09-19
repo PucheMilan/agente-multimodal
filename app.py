@@ -23,7 +23,7 @@ from graph.utils.helpers import get_image_to_text_module, get_speech_to_text_mod
 from modules.memory.cache import init_cache
 from settings import settings
 from tools import logger
-from tools.tracing import flush
+from tools.tracing import flush, traza_conversacion
 
 # En Windows el bucle por defecto (Proactor) hace que psycopg en modo async
 # falle al conectar. Chainlit crea su propio bucle, asi que hay que fijar la
@@ -41,10 +41,17 @@ async def _ejecutar(contenido: str, thread_id: str) -> dict:
     """Pasa el mensaje por el grafo con el checkpointer en PostgreSQL."""
     async with AsyncPostgresSaver.from_conn_string(settings.URI_PSYCOPG) as saver:
         app = graph_builder.compile(checkpointer=saver)
-        return await app.ainvoke(
-            {"messages": [HumanMessage(content=contenido)]},
-            {"configurable": {"thread_id": thread_id}},
-        )
+        # La traza padre hace que los nodos cuelguen de UNA traza por mensaje.
+        with traza_conversacion(entrada=contenido, sesion=thread_id) as traza:
+            estado = await app.ainvoke(
+                {"messages": [HumanMessage(content=contenido)]},
+                {"configurable": {"thread_id": thread_id}},
+            )
+            # Sin esto la traza padre queda con output 'undefined': se ve por donde
+            # paso la peticion, pero no que respondio.
+            if traza is not None:
+                traza.update(output=estado["messages"][-1].content)
+            return estado
 
 
 async def _responder(estado: dict) -> None:
