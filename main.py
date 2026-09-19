@@ -38,6 +38,7 @@ from modules.memory.cache import init_cache
 from modules.memory.long_term import get_vector_store
 from settings import settings
 from tools import logger
+from tools.tracing import flush, traza_conversacion
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -64,6 +65,9 @@ async def lifespan(app: FastAPI):
     get_vector_store()
     logger.info("API lista")
     yield
+    # Al apagar la API, lo que quede en el buffer de LangFuse se envia. Sin esto
+    # las trazas del ultimo rato se pierden en silencio.
+    flush()
 
 
 app = FastAPI(title="Chat API", version="1.0.0", lifespan=lifespan)
@@ -83,10 +87,13 @@ async def execute_graph_workflow(content: str, thread_id: str) -> ChatResponse:
     try:
         async with AsyncPostgresSaver.from_conn_string(settings.URI_PSYCOPG) as saver:
             grafo = graph_builder.compile(checkpointer=saver)
-            estado = await grafo.ainvoke(
-                {"messages": [HumanMessage(content=content)]},
-                {"configurable": {"thread_id": thread_id}},
-            )
+            with traza_conversacion(entrada=content, sesion=thread_id) as traza:
+                estado = await grafo.ainvoke(
+                    {"messages": [HumanMessage(content=content)]},
+                    {"configurable": {"thread_id": thread_id}},
+                )
+                if traza is not None:
+                    traza.update(output=estado["messages"][-1].content)
     except Exception as e:  # noqa: BLE001
         logger.exception("Fallo el grafo")
         raise HTTPException(status_code=500, detail=str(e)) from e
