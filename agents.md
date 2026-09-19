@@ -109,7 +109,7 @@ Orden de construcción y qué tiene de particular cada uno:
 | `core/prompts.py` | Todos los prompts juntos y versionados. Cada regla lleva su motivo |
 | `core/exceptions.py` | Una excepción por módulo: saber qué se rompió sin leer la traza |
 | `tools/tools.py` | Logger que no duplica handlers al reimportarse |
-| `tools/tracing.py` | `@observe` **degradable**: sin claves de LangFuse es un decorador que no hace nada. Así el proyecto arranca sin cuenta en ningún sitio |
+| `tools/tracing.py` | `@observe` **degradable**: sin claves de LangFuse es un decorador que no hace nada. Así el proyecto arranca sin cuenta en ningún sitio. Y `traza_conversacion()`, que abre la traza padre de cada vuelta por el grafo |
 | `modules/speech/` | Modelos cargados con `lru_cache`: pesan segundos la primera vez |
 | `modules/image/text_to_image.py` | Escena → prompt mejorado → imagen. Si el LLM devuelve un JSON malo, se degrada al historial en vez de romper |
 | `modules/image/image_to_text.py` | Imágenes al modelo de visión; PDF y texto se extraen y se resumen. No se manda un PDF entero a un modelo de visión |
@@ -189,7 +189,7 @@ viejo seguía dueño del puerto y `pkill -f "main.py"` no casaba con `-m uvicorn
 | Memoria corta → Postgres | `AsyncPostgresSaver`. Aquí volvió lo del bucle de eventos |
 | Memoria larga → Postgres | `PostgreSQLVectorStore` con índice HNSW y deduplicación |
 | Caché de respuestas | Tabla con SQLAlchemy y caducidad, solo para la rama de conversación |
-| LangFuse | `@observe` en los siete nodos, **degradable** si no hay claves |
+| LangFuse | `@observe` en los siete nodos, **degradable** si no hay claves. Los nodos cuelgan de una traza padre por conversación, con su sesión |
 | FastAPI | Cinco endpoints, con la imagen y el audio en base64 |
 
 **El bucle de eventos, resuelto del todo.** Tres intentos:
@@ -218,6 +218,16 @@ viejo seguía dueño del puerto y `pkill -f "main.py"` no casaba con `-m uvicorn
 - **No se usó ningún servicio de pago**, aunque el enunciado los nombre. La arquitectura es
   idéntica; solo cambia el proveedor dentro de `modules/`, que es justo la capa que existe
   para eso.
-- **No se activó LangFuse por defecto.** Requiere una cuenta y el proyecto tenía que arrancar
-  sin ninguna. El código está instrumentado y basta rellenar dos variables.
+- **No se activó LangFuse por defecto.** El proyecto tenía que arrancar sin depender de
+  ningún servicio externo. El código está instrumentado y basta rellenar dos variables del
+  `.env`; el servidor puede ser la nube de LangFuse **o uno propio autoalojado**, que es lo
+  que se usó para validarlo (LangFuse es software libre, así que sigue costando 0 €).
+
+> **Lo que enseñó encenderlo.** `@observe` abre un span dentro del span actual; si no hay
+> ninguno abierto, cada nodo se convierte en su **propia traza raíz**. Con los siete nodos
+> decorados y nadie abriendo la traza de la petición, una prueba de humo de cuatro mensajes
+> producía **16 trazas sueltas** en vez de 4 con sus nodos dentro. De ahí
+> `traza_conversacion()`: un context manager que abre esa traza padre, le pone el `thread_id`
+> como sesión y la cierra con la respuesta final. Se usa en los tres sitios donde se invoca
+> el grafo: el front, la API y la prueba de humo.
 - **No se subió a producción.** El enunciado no lo pide y no había dónde.
